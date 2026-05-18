@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,6 +33,8 @@ import com.yunfei.autoclicktester.engine.AutoClickEngine
 import com.yunfei.autoclicktester.model.ClickConfig
 import com.yunfei.autoclicktester.service.AutoClickAccessibilityService
 import com.yunfei.autoclicktester.storage.ClickConfigStorage
+import java.text.DateFormat
+import java.util.Date
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +51,10 @@ fun AutoClickScreen() {
     val intervalText = remember { mutableStateOf(initialConfig.intervalMs.toString()) }
     val xPercentText = remember { mutableStateOf(trimPercent(initialConfig.xPercent)) }
     val yPercentText = remember { mutableStateOf(trimPercent(initialConfig.yPercent)) }
+    val showTouchMarker = remember { mutableStateOf(initialConfig.showTouchMarker) }
+    val clickCount = remember { mutableStateOf(0L) }
+    val lastClickTime = remember { mutableStateOf("尚未点击") }
+    val timeFormatter = remember { DateFormat.getTimeInstance(DateFormat.MEDIUM) }
 
     Column(
         modifier = Modifier
@@ -58,6 +66,8 @@ fun AutoClickScreen() {
     ) {
         Text("Android Auto Click Tester")
         Text("Status: ${status.value}")
+        Text("点击次数：${clickCount.value}")
+        Text("最后一次：${lastClickTime.value}")
 
         OutlinedTextField(
             value = intervalText.value,
@@ -83,9 +93,24 @@ fun AutoClickScreen() {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = showTouchMarker.value,
+                onCheckedChange = { showTouchMarker.value = it }
+            )
+            Text("显示点击标记")
+        }
 
         Button(onClick = {
-            val config = parseClickConfig(intervalText.value, xPercentText.value, yPercentText.value)
+            val config = parseClickConfig(
+                intervalText.value,
+                xPercentText.value,
+                yPercentText.value,
+                showTouchMarker.value
+            )
             if (config == null) {
                 status.value = "配置无效：间隔 100-60000，位置 0-100"
             } else {
@@ -113,15 +138,30 @@ fun AutoClickScreen() {
 
         Button(onClick = {
             val service = AutoClickAccessibilityService.instance
-            val config = parseClickConfig(intervalText.value, xPercentText.value, yPercentText.value)
+            val config = parseClickConfig(
+                intervalText.value,
+                xPercentText.value,
+                yPercentText.value,
+                showTouchMarker.value
+            )
             if (config == null) {
                 status.value = "配置无效：间隔 100-60000，位置 0-100"
             } else if (service == null) {
                 status.value = "请先启用无障碍服务"
             } else {
                 ClickConfigStorage.save(context, config)
-                AutoClickEngine.start(service, config)
-                status.value = "点击中：${config.intervalMs}ms @ ${trimPercent(config.xPercent)}%, ${trimPercent(config.yPercent)}%"
+                clickCount.value = 0L
+                lastClickTime.value = "等待第一次点击"
+                AutoClickEngine.start(service, config) { count ->
+                    clickCount.value = count
+                    lastClickTime.value = timeFormatter.format(Date())
+                    status.value = "点击中：第 ${count} 次 @ ${trimPercent(config.xPercent)}%, ${trimPercent(config.yPercent)}%"
+                }
+                status.value = if (config.showTouchMarker && !canDrawOverlay(context)) {
+                    "点击中：未授权悬浮窗，标记不可见"
+                } else {
+                    "点击中：等待第一次点击"
+                }
             }
         }) { Text("开始点击") }
 
@@ -132,7 +172,12 @@ fun AutoClickScreen() {
     }
 }
 
-private fun parseClickConfig(intervalText: String, xPercentText: String, yPercentText: String): ClickConfig? {
+private fun parseClickConfig(
+    intervalText: String,
+    xPercentText: String,
+    yPercentText: String,
+    showTouchMarker: Boolean
+): ClickConfig? {
     val intervalMs = intervalText.trim().toLongOrNull() ?: return null
     val xPercent = xPercentText.trim().toFloatOrNull() ?: return null
     val yPercent = yPercentText.trim().toFloatOrNull() ?: return null
@@ -144,7 +189,8 @@ private fun parseClickConfig(intervalText: String, xPercentText: String, yPercen
     return ClickConfig(
         intervalMs = intervalMs,
         xPercent = xPercent,
-        yPercent = yPercent
+        yPercent = yPercent,
+        showTouchMarker = showTouchMarker
     )
 }
 
@@ -154,4 +200,8 @@ private fun trimPercent(value: Float): String {
     } else {
         value.toString()
     }
+}
+
+private fun canDrawOverlay(context: android.content.Context): Boolean {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
 }

@@ -7,6 +7,7 @@ import android.os.Build
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import com.yunfei.autoclicktester.overlay.ClickMarkerOverlay
 
 class AutoClickAccessibilityService : AccessibilityService() {
     companion object {
@@ -25,12 +26,13 @@ class AutoClickAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        ClickMarkerOverlay.hide(this)
         super.onDestroy()
         instance = null
     }
 
-    fun clickAt(xPercent: Float, yPercent: Float) {
-        val windowManager = getSystemService(WindowManager::class.java) ?: return
+    fun clickAt(xPercent: Float, yPercent: Float, showTouchMarker: Boolean): Boolean {
+        val windowManager = getSystemService(WindowManager::class.java) ?: return false
         val safeXPercent = xPercent.coerceIn(0f, 100f)
         val safeYPercent = yPercent.coerceIn(0f, 100f)
 
@@ -55,7 +57,11 @@ class AutoClickAccessibilityService : AccessibilityService() {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0L, 80L))
             .build()
-        dispatchGesture(gesture, null, null)
+        val accepted = dispatchGesture(gesture, null, null)
+        if (accepted && showTouchMarker) {
+            ClickMarkerOverlay.flashAt(this, centerX, centerY)
+        }
+        return accepted
     }
 
     private data class ScreenMetrics(
