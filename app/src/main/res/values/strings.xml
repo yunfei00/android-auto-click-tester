@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Auto Click Tester</string>
+    <string name="accessibility_service_description">Used for UI stress auto-click testing only.</string>
+</resources>
