@@ -11,10 +11,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,7 @@ import com.yunfei.autoclicktester.engine.AutoClickEngine
 import com.yunfei.autoclicktester.model.ClickConfig
 import com.yunfei.autoclicktester.model.ClickPointConfig
 import com.yunfei.autoclicktester.overlay.OverlayPermissionHelper
+import com.yunfei.autoclicktester.overlay.PointPickerOverlay
 import com.yunfei.autoclicktester.service.AutoClickAccessibilityService
 import com.yunfei.autoclicktester.storage.ClickConfigStorage
 import java.text.DateFormat
@@ -69,9 +69,8 @@ fun AutoClickScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -99,6 +98,36 @@ fun AutoClickScreen() {
             onXPercentChange = { pointOneXText.value = it },
             onYPercentChange = { pointOneYText.value = it }
         )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    if (!OverlayPermissionHelper.hasOverlayPermission(context)) {
+                        showStatus(status, statusTone, StatusTone.Warning, "请先开启悬浮窗权限后再选点")
+                    } else {
+                        val shown = PointPickerOverlay.show(context) { x, y ->
+                            pointOneXText.value = trimPercent(x)
+                            pointOneYText.value = trimPercent(y)
+                        }
+                        if (shown) showStatus(status, statusTone, StatusTone.Info, "请点击屏幕选择点 1")
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("选择点1") }
+            Button(
+                onClick = {
+                    if (!OverlayPermissionHelper.hasOverlayPermission(context)) {
+                        showStatus(status, statusTone, StatusTone.Warning, "请先开启悬浮窗权限后再选点")
+                    } else {
+                        val shown = PointPickerOverlay.show(context) { x, y ->
+                            pointTwoXText.value = trimPercent(x)
+                            pointTwoYText.value = trimPercent(y)
+                        }
+                        if (shown) showStatus(status, statusTone, StatusTone.Info, "请点击屏幕选择点 2")
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("选择点2") }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -134,6 +163,7 @@ fun AutoClickScreen() {
             Text("显示点击标记（红色 1 / 蓝色 2）")
         }
 
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = {
             val config = parseClickConfig(
                 pointOneIntervalText.value,
@@ -217,12 +247,13 @@ fun AutoClickScreen() {
                 }
                 showStatus(status, statusTone, StatusTone.Running, "点击中：等待第一次点击")
             }
-        }) { Text("开始点击") }
+        }, modifier = Modifier.weight(1f)) { Text("开始点击") }
 
         Button(onClick = {
             AutoClickEngine.stop()
             showStatus(status, statusTone, StatusTone.Info, "已停止")
-        }) { Text("停止点击") }
+        }, modifier = Modifier.weight(1f)) { Text("停止点击") }
+        }
     }
 }
 

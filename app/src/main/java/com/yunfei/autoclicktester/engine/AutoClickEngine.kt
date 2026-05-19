@@ -23,6 +23,8 @@ object AutoClickEngine {
     private val clickTasks = mutableListOf<Runnable>()
     private var progressCallback: ((ClickProgress) -> Unit)? = null
     private var service: AutoClickAccessibilityService? = null
+    val isRunning: Boolean
+        get() = running
 
     fun start(
         accessibilityService: AutoClickAccessibilityService,
