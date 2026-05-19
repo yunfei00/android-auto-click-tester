@@ -31,7 +31,12 @@ class AutoClickAccessibilityService : AccessibilityService() {
         instance = null
     }
 
-    fun clickAt(xPercent: Float, yPercent: Float, showTouchMarker: Boolean): Boolean {
+    fun clickAt(
+        xPercent: Float,
+        yPercent: Float,
+        showTouchMarker: Boolean,
+        markerLabel: String
+    ): Boolean {
         val windowManager = getSystemService(WindowManager::class.java) ?: return false
         val safeXPercent = xPercent.coerceIn(0f, 100f)
         val safeYPercent = yPercent.coerceIn(0f, 100f)
@@ -59,7 +64,7 @@ class AutoClickAccessibilityService : AccessibilityService() {
             .build()
         val accepted = dispatchGesture(gesture, null, null)
         if (accepted && showTouchMarker) {
-            ClickMarkerOverlay.flashAt(this, centerX, centerY)
+            ClickMarkerOverlay.flashAt(this, centerX, centerY, markerLabel)
         }
         return accepted
     }

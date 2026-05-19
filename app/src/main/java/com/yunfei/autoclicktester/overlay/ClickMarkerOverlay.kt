@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -15,21 +16,24 @@ import android.view.WindowManager
 import kotlin.math.roundToInt
 
 object ClickMarkerOverlay {
-    private const val MARKER_SIZE_DP = 56
-    private const val MARKER_DURATION_MS = 220L
+    private const val MARKER_SIZE_DP = 82
+    private const val MARKER_DURATION_MS = 700L
 
     private val handler = Handler(Looper.getMainLooper())
-    private var markerView: ClickMarkerView? = null
-    private var hideRunnable: Runnable? = null
+    private val markerViews = mutableMapOf<String, ClickMarkerView>()
+    private val hideRunnables = mutableMapOf<String, Runnable>()
 
-    fun flashAt(context: Context, x: Float, y: Float) {
+    fun flashAt(context: Context, x: Float, y: Float, label: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) return
 
         handler.post {
             val windowManager = context.getSystemService(WindowManager::class.java) ?: return@post
             val density = context.resources.displayMetrics.density
             val markerSize = (MARKER_SIZE_DP * density).roundToInt()
-            val view = markerView ?: ClickMarkerView(context.applicationContext).also { markerView = it }
+            val view = markerViews.getOrPut(label) {
+                ClickMarkerView(context.applicationContext)
+            }
+            view.setMarker(label, markerColor(label))
             val params = WindowManager.LayoutParams(
                 markerSize,
                 markerSize,
@@ -56,8 +60,8 @@ object ClickMarkerOverlay {
             }
 
             view.invalidate()
-            hideRunnable?.let(handler::removeCallbacks)
-            hideRunnable = Runnable { hide(context) }.also {
+            hideRunnables.remove(label)?.let(handler::removeCallbacks)
+            hideRunnables[label] = Runnable { hideLabel(context, label) }.also {
                 handler.postDelayed(it, MARKER_DURATION_MS)
             }
         }
@@ -66,7 +70,26 @@ object ClickMarkerOverlay {
     fun hide(context: Context) {
         handler.post {
             val windowManager = context.getSystemService(WindowManager::class.java) ?: return@post
-            val view = markerView ?: return@post
+            hideRunnables.values.forEach(handler::removeCallbacks)
+            hideRunnables.clear()
+            markerViews.values.forEach { view ->
+                if (view.isAttachedToWindow) {
+                    try {
+                        windowManager.removeView(view)
+                    } catch (_: RuntimeException) {
+                        return@forEach
+                    }
+                }
+            }
+            markerViews.clear()
+        }
+    }
+
+    private fun hideLabel(context: Context, label: String) {
+        handler.post {
+            val windowManager = context.getSystemService(WindowManager::class.java) ?: return@post
+            hideRunnables.remove(label)
+            val view = markerViews[label] ?: return@post
             if (!view.isAttachedToWindow) return@post
             try {
                 windowManager.removeView(view)
@@ -75,15 +98,20 @@ object ClickMarkerOverlay {
             }
         }
     }
+
+    private fun markerColor(label: String): Int {
+        return if (label == "2") Color.rgb(0, 150, 255) else Color.rgb(255, 48, 48)
+    }
 }
 
 private class ClickMarkerView(context: Context) : View(context) {
+    private var markerLabel = "1"
+    private var markerColor = Color.rgb(255, 48, 48)
+
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(72, 255, 64, 64)
         style = Paint.Style.FILL
     }
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(255, 48, 48)
         style = Paint.Style.STROKE
         strokeWidth = 5f * resources.displayMetrics.density
     }
@@ -91,6 +119,20 @@ private class ClickMarkerView(context: Context) : View(context) {
         color = Color.WHITE
         style = Paint.Style.STROKE
         strokeWidth = 2f * resources.displayMetrics.density
+    }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textAlign = Paint.Align.CENTER
+        textSize = 28f * resources.displayMetrics.scaledDensity
+        typeface = Typeface.DEFAULT_BOLD
+        setShadowLayer(4f * resources.displayMetrics.density, 0f, 0f, Color.BLACK)
+    }
+
+    fun setMarker(label: String, color: Int) {
+        markerLabel = label
+        markerColor = color
+        fillPaint.color = colorWithAlpha(color, 96)
+        ringPaint.color = color
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -102,5 +144,11 @@ private class ClickMarkerView(context: Context) : View(context) {
         canvas.drawCircle(centerX, centerY, radius, ringPaint)
         canvas.drawLine(centerX - radius, centerY, centerX + radius, centerY, linePaint)
         canvas.drawLine(centerX, centerY - radius, centerX, centerY + radius, linePaint)
+        val textY = centerY - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(markerLabel, centerX, textY, textPaint)
+    }
+
+    private fun colorWithAlpha(color: Int, alpha: Int): Int {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
     }
 }
