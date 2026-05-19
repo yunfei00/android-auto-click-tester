@@ -5,8 +5,10 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Build
 import android.util.DisplayMetrics
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import com.yunfei.autoclicktester.engine.AutoClickEngine
 import com.yunfei.autoclicktester.overlay.ClickMarkerOverlay
 
 class AutoClickAccessibilityService : AccessibilityService() {
@@ -24,6 +26,17 @@ class AutoClickAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
     override fun onInterrupt() = Unit
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN &&
+            event.action == KeyEvent.ACTION_DOWN &&
+            AutoClickEngine.isRunning
+        ) {
+            AutoClickEngine.stop()
+            return true
+        }
+        return super.onKeyEvent(event)
+    }
 
     override fun onDestroy() {
         ClickMarkerOverlay.hide(this)
