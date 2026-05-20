@@ -14,6 +14,13 @@ data class ClickProgress(
     val yPercent: Float
 )
 
+enum class StopReason {
+    UserRequest,
+    VolumeDown,
+    ServiceInterrupted,
+    ServiceDestroyed
+}
+
 object AutoClickEngine {
     private val handler = Handler(Looper.getMainLooper())
     private var running = false
@@ -22,6 +29,7 @@ object AutoClickEngine {
     private val pointClickCounts = mutableMapOf<String, Long>()
     private val clickTasks = mutableListOf<Runnable>()
     private var progressCallback: ((ClickProgress) -> Unit)? = null
+    private var stopCallback: ((StopReason) -> Unit)? = null
     private var service: AutoClickAccessibilityService? = null
     val isRunning: Boolean
         get() = running
@@ -29,12 +37,14 @@ object AutoClickEngine {
     fun start(
         accessibilityService: AutoClickAccessibilityService,
         clickConfig: ClickConfig,
-        onProgress: (ClickProgress) -> Unit
+        onProgress: (ClickProgress) -> Unit,
+        onStopped: (StopReason) -> Unit = {}
     ) {
-        stop()
+        stopInternal(StopReason.UserRequest, notify = false)
         service = accessibilityService
         config = clickConfig
         progressCallback = onProgress
+        stopCallback = onStopped
         totalClickCount = 0L
         pointClickCounts.clear()
         config.activePoints.forEach { pointClickCounts[it.label] = 0L }
@@ -47,12 +57,22 @@ object AutoClickEngine {
         }
     }
 
-    fun stop() {
+    fun stop(reason: StopReason = StopReason.UserRequest) {
+        stopInternal(reason, notify = true)
+    }
+
+    private fun stopInternal(reason: StopReason, notify: Boolean) {
+        val wasRunning = running
+        val callback = stopCallback
         running = false
         clickTasks.forEach(handler::removeCallbacks)
         clickTasks.clear()
         progressCallback = null
+        stopCallback = null
         service = null
+        if (wasRunning && notify) {
+            callback?.invoke(reason)
+        }
     }
 
     private fun createClickTask(point: ClickPointConfig): Runnable {
@@ -79,7 +99,9 @@ object AutoClickEngine {
                         )
                     )
                 }
-                handler.postDelayed(this, point.intervalMs)
+                if (running) {
+                    handler.postDelayed(this, point.intervalMs)
+                }
             }
         }
     }

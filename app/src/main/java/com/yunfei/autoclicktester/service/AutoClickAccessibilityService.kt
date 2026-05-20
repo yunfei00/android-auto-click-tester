@@ -1,14 +1,21 @@
 package com.yunfei.autoclicktester.service
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
+import android.database.ContentObserver
 import android.graphics.Path
+import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.provider.Settings
 import com.yunfei.autoclicktester.engine.AutoClickEngine
+import com.yunfei.autoclicktester.engine.StopReason
 import com.yunfei.autoclicktester.overlay.ClickMarkerOverlay
 
 class AutoClickAccessibilityService : AccessibilityService() {
@@ -16,32 +23,87 @@ class AutoClickAccessibilityService : AccessibilityService() {
         @Volatile
         var instance: AutoClickAccessibilityService? = null
             private set
+
+        private val VOLUME_STREAMS = intArrayOf(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.STREAM_RING,
+            AudioManager.STREAM_NOTIFICATION,
+            AudioManager.STREAM_ALARM
+        )
+    }
+
+    private var consumeVolumeDownKey = false
+    private var lastStreamVolumes = emptyMap<Int, Int>()
+    private val volumeObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            handleVolumeChange()
+        }
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        val info = serviceInfo ?: AccessibilityServiceInfo()
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+        info.flags = info.flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        info.notificationTimeout = 100
+        setServiceInfo(info)
         instance = this
+        lastStreamVolumes = readStreamVolumes()
+        contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, volumeObserver)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() {
+        AutoClickEngine.stop(StopReason.ServiceInterrupted)
+    }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN &&
-            event.action == KeyEvent.ACTION_DOWN &&
-            AutoClickEngine.isRunning
-        ) {
-            AutoClickEngine.stop()
-            return true
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (event.action == KeyEvent.ACTION_DOWN && AutoClickEngine.isRunning) {
+                consumeVolumeDownKey = true
+                AutoClickEngine.stop(StopReason.VolumeDown)
+                return true
+            }
+            if (event.action == KeyEvent.ACTION_UP && consumeVolumeDownKey) {
+                consumeVolumeDownKey = false
+                return true
+            }
         }
         return super.onKeyEvent(event)
     }
 
     override fun onDestroy() {
+        AutoClickEngine.stop(StopReason.ServiceDestroyed)
         ClickMarkerOverlay.hide(this)
+        try {
+            contentResolver.unregisterContentObserver(volumeObserver)
+        } catch (_: RuntimeException) {
+            // The observer can already be unregistered when the service is torn down.
+        }
         super.onDestroy()
         instance = null
+    }
+
+    private fun handleVolumeChange() {
+        val currentVolumes = readStreamVolumes()
+        val volumeWentDown = currentVolumes.any { (streamType, volume) ->
+            val previousVolume = lastStreamVolumes[streamType]
+            previousVolume != null && volume < previousVolume
+        }
+        lastStreamVolumes = currentVolumes
+        if (volumeWentDown && AutoClickEngine.isRunning) {
+            AutoClickEngine.stop(StopReason.VolumeDown)
+        }
+    }
+
+    private fun readStreamVolumes(): Map<Int, Int> {
+        val audioManager = getSystemService(AudioManager::class.java) ?: return emptyMap()
+        return VOLUME_STREAMS.associateWith { streamType ->
+            audioManager.getStreamVolume(streamType)
+        }
     }
 
     fun clickAt(
@@ -88,4 +150,5 @@ class AutoClickAccessibilityService : AccessibilityService() {
         val offsetX: Float,
         val offsetY: Float
     )
+
 }

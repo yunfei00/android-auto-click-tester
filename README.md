@@ -1,32 +1,38 @@
 # android-auto-click-tester
 
-Android UI 自动点击测试工具（仅用于界面压力测试）。项目通过 `AccessibilityService#dispatchGesture` 按配置的时间间隔和屏幕百分比位置执行点击，支持单点或双点独立配置。
+Android UI 自动点击测试工具，仅用于合法的界面压力测试。应用通过无障碍服务的 `dispatchGesture` 按配置间隔和屏幕位置执行点击，支持单点或双点独立配置。
 
-## GitHub Actions 状态
+## 功能
 
-![Android CI](https://github.com/<YOUR_ORG>/<YOUR_REPO>/actions/workflows/android.yml/badge.svg)
+- 在手机屏幕上直接点选点击位置，自动换算为屏幕百分比坐标。
+- 支持点 1 / 点 2 的独立间隔和坐标配置。
+- 运行中可通过“停止点击”按钮停止，也可按音量下键停止。
+- 可显示红色点 1、蓝色点 2 的点击标记。
+- 主界面压缩为一屏，常用配置无需向下滚动。
 
-## 下载 APK
+## 构建
 
-- Debug APK（每次 push main 后）：
-  - 进入 GitHub 仓库 **Actions** -> 对应 workflow run -> **Artifacts** 下载 `app-debug-apk`。
-- Release APK（打 tag `v*` 后）：
-  - 进入仓库 **Releases** 页面下载 `app-release.apk`。
+```powershell
+.\gradlew.bat :app:assembleRelease
+```
 
-## 如何开启无障碍权限
+生成文件：
 
-1. 打开 App。
-2. 点击“启动无障碍服务”。
-3. 在系统无障碍设置中找到 `Auto Click Tester` 并启用。
+- `app/build/outputs/apk/release/app-release.apk`
+- `app/build/outputs/apk/debug/app-debug.apk`
 
-## 如何使用
+## GitHub Actions
 
-1. 配置“点 1”的间隔、X 位置、Y 位置。
-2. 如需双点点击，勾选“启用第二个点”，再配置“点 2”的间隔、X 位置、Y 位置。
-3. 点击“悬浮窗权限检测”并授予权限；默认会显示红色 `1` 和蓝色 `2` 点击标记，便于区分两个点。
-4. 点击“开始点击”，按保存的配置开始点击；界面会显示总点击次数、各点次数和最后一次点击时间。
-5. 如果直接开始但未启用无障碍服务，顶部 Status 会显示醒目的错误提示。
-6. 点击“停止点击”结束任务。
+- 推送 `main` 会构建 Debug APK，并上传 `app-debug-apk` artifact。
+- 推送语义化版本 tag（例如 `0.5.0` 或 `v0.5.0`）会构建 Release APK，并创建 GitHub Release 上传 `app-release.apk`。
+
+## 使用
+
+1. 打开 App，点击“无障碍”，在系统设置中启用 `Auto Click Tester`。
+2. 如需屏幕点选或点击标记，点击“悬浮窗”并授予权限。
+3. 在“点 1 / 点 2”行配置间隔、X、Y，或点击“选点”后直接在屏幕上点选位置。
+4. 需要双点点击时，勾选“启用点 2”。
+5. 点击“开始点击”运行，点击“停止点击”或按音量下键停止。
 
 ## 免责声明
 
