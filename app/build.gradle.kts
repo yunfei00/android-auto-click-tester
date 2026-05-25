@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val appVersionCode = 6
+val appVersionName = "0.5.1"
+val apkBaseName = "Auto-Click-Tester-v$appVersionName"
+
 android {
     namespace = "com.yunfei.autoclicktester"
     compileSdk = 36
@@ -12,8 +16,9 @@ android {
         applicationId = "com.yunfei.autoclicktester"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+        setProperty("archivesBaseName", apkBaseName)
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

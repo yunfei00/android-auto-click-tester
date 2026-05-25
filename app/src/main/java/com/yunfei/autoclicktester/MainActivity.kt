@@ -144,7 +144,7 @@ fun AutoClickScreen() {
                 maxLines = 1
             )
             Text(
-                text = "0.5.0",
+                text = BuildConfig.VERSION_NAME,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )

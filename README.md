@@ -18,13 +18,13 @@ Android UI 自动点击测试工具，仅用于合法的界面压力测试。应
 
 生成文件：
 
-- `app/build/outputs/apk/release/app-release.apk`
-- `app/build/outputs/apk/debug/app-debug.apk`
+- `app/build/outputs/apk/release/Auto-Click-Tester-v0.5.1-release.apk`
+- `app/build/outputs/apk/debug/Auto-Click-Tester-v0.5.1-debug.apk`
 
 ## GitHub Actions
 
-- 推送 `main` 会构建 Debug APK，并上传 `app-debug-apk` artifact。
-- 推送语义化版本 tag（例如 `0.5.0` 或 `v0.5.0`）会构建 Release APK，并创建 GitHub Release 上传 `app-release.apk`。
+- 推送 `main` 会构建 Debug APK，并上传 `Auto-Click-Tester-debug-apk` artifact。
+- 推送语义化版本 tag（例如 `0.5.1` 或 `v0.5.1`）会构建 Release APK，并创建 GitHub Release 上传 `Auto-Click-Tester-v0.5.1-release.apk`。
 
 ## 使用
 
